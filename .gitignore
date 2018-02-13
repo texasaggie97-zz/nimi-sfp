@@ -99,6 +99,6 @@ ENV/
 .mypy_cache/
 
 
-wxglade_out.py
-#~wxg.autosave*
-*.bak
+wxglide/wxglade_out.py
+wxglide/#~wxg.autosave*
+wxglide/*.bak
