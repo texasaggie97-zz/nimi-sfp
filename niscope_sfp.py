@@ -205,7 +205,7 @@ class SFP(wx.Frame):
         label_8 = wx.StaticText(self, wx.ID_ANY, "Min Record Length")
         grid_sizer_6.Add(label_8, 25, wx.ALIGN_CENTER_VERTICAL, 0)
         grid_sizer_6.Add(self._min_record_length, 25, wx.ALIGN_CENTER_VERTICAL | wx.ALIGN_RIGHT, 0)
-        label_6 = wx.StaticText(self, wx.ID_ANY, "Channels")
+        label_6 = wx.StaticText(self, wx.ID_ANY, "Channels (blank for all)")
         grid_sizer_6.Add(label_6, 25, 0, 0)
         grid_sizer_6.Add(self._channel_list, 25, 0, 0)
         grid_sizer_6.Add((20, 20), 25, 0, 0)
@@ -310,7 +310,9 @@ class SFP(wx.Frame):
                 num_samples = int(self._min_record_length.GetValue())
             except TypeError as e:
                 self._status.SetLabel('Error getting horizontal configuration: {0}'.format(str(e)))
-            wfm_infos = self._session.channels[self._channel_list.GetValue()].fetch(num_samples=num_samples)
+
+            channel_list = ','.join(['{0}'.format(i) for i in range(self._session.channel_count)]) if self._channel_list.GetValue() == '' else self._channel_list.GetValue()
+            wfm_infos = self._session.channels[channel_list].fetch(num_samples=num_samples)
             if len(w) > 0:  # that means we got a warning so we will put it in the status area
                 self._status.SetLabel(str(w[0].message))
 
