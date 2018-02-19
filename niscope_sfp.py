@@ -1,8 +1,15 @@
 import math
-import nidmm
 import nimodinst
+import niscope
 import warnings
 import wx
+
+# begin wxGlade: extracode
+import matplotlib
+matplotlib.use("WxAgg")
+from matplotlib.backends.backend_wxagg import FigureCanvasWxAgg as FigureCanvas
+from matplotlib.figure import Figure
+# end wxGlade
 
 USE_WIT = True
 
@@ -11,188 +18,162 @@ if USE_WIT:
     from wx.lib.mixins.inspection import InspectableApp
     AppBaseClass = InspectableApp
 
-
-def format_meas(reading, function, range, resolution):
-    unit_modifiers = {-12: "p", -9: "n", -6: "u", -3: "m", 0: "", 3: "k", 6: "M", 9: "G"}
-    function_units = {
-        nidmm.Function.AC_VOLTS: "V AC",
-        nidmm.Function.DC_VOLTS: "V DC",
-        nidmm.Function.AC_CURRENT: "A AC",
-        nidmm.Function.DC_CURRENT: "A DC",
-        nidmm.Function.DIODE: "V Diode",
-        nidmm.Function._2_WIRE_RES: "Ohm",
-        nidmm.Function._4_WIRE_RES: "Ohm",
-        nidmm.Function.PERIOD: "s",
-        nidmm.Function.FREQ: "Hz",
-        nidmm.Function.AC_VOLTS_DC_COUPLED: "V AC",
-        nidmm.Function.CAPACITANCE: "F",
-        nidmm.Function.INDUCTANCE: "H",
-        nidmm.Function.TEMPERATURE: "deg C",
-    }
-
-    data_width = int(math.floor(resolution) + 1)
-
-    # calculate reading string
-    temp_range = range
-    if (range * 1.2) < math.fabs(reading):
-        temp_range = math.fabs(reading)
-
-    order_of_subunit = int(math.floor(math.log10(temp_range) / 3))
-    if order_of_subunit < -4:
-        order_of_subunit = -4
-    elif order_of_subunit > 3:
-        order_of_subunit = 3
-
-    range_order_of_subunit = int(math.floor(math.log10(range) / 3))
-    if range_order_of_subunit < -4:
-        range_order_of_subunit = -4
-    elif range_order_of_subunit > 3:
-        range_order_of_subunit = 3
-
-    # function specific overrides
-    if function == nidmm.Function.CAPACITANCE:
-        if order_of_subunit == -1:
-            order_of_subunit = -2
-        if range_order_of_subunit == -1:
-            range_order_of_subunit = -2
-    elif function == nidmm.Function.DC_VOLTS:
-        if order_of_subunit == 1:
-            order_of_subunit = 0
-        if range_order_of_subunit == 1:
-            range_order_of_subunit = 0
-    elif function == nidmm.Function.TEMPERATURE:
-        order_of_subunit = 0
-        range_order_of_subunit = 0
-
-    # Calculate the divisor, the number by which to divide the reading to account
-    # for the subunit (u,m,k,M).  The number of digits after the decimal point
-    # is equal to the total number of digits minus the digits before the decimal
-    # point.  Remeber that there needs to be one character for the decimal point
-    # and one character for the - sign if present (+ does not appers, just a sp).
-    divisor = math.pow(10.0, 3 * order_of_subunit)
-    range_divisor = math.pow(10.0, 3 * range_order_of_subunit)
-
-    if math.isnan(reading):
-        reading_string = 'OVLD'
-    elif math.isinf(reading):
-        reading_string = 'UNDRNG'
+vertical_couplings = {
+    'AC': niscope.VerticalCoupling.AC,
+    'DC': niscope.VerticalCoupling.DC,
+    'Ground': niscope.VerticalCoupling.GND,
+}
+def get_vertical_coupling_enum(coupling_string):
+    if coupling_string in vertical_couplings:
+        return vertical_couplings[coupling_string]
     else:
-        precision = data_width - 1 - int(math.floor(1e-9 + math.log10(temp_range / divisor)))
-        if temp_range != range:
-            reading_exp = math.floor(math.log10(math.fabs(reading)))
-            reading_base = math.fabs(reading / math.pow(10.0, reading_exp))
+        raise TypeError('Incorrect vertical coupling string: {0}'.format(coupling_string))
 
-            if 1.2 < reading_base:
-                precision -= 1
+trigger_couplings = {
+    'AC': niscope.TriggerCoupling.AC,
+    'DC': niscope.TriggerCoupling.DC,
+    'HF_REJECT': niscope.TriggerCoupling.HF_REJECT,
+    'LF_REJECT': niscope.TriggerCoupling.LF_REJECT,
+    'AC_PLUS_HF_REJECT': niscope.TriggerCoupling.AC_PLUS_HF_REJECT,
+}
+def get_trigger_coupling_enum(coupling_string):
+    if coupling_string in trigger_couplings:
+        return trigger_couplings[coupling_string]
+    else:
+        raise TypeError('Incorrect trigger coupling string: {0}'.format(coupling_string))
 
-        if precision < 0:
-            precision = 0
+slopes = {
+    'Positive': niscope.TriggerSlope.POSITIVE,
+    'Negative': niscope.TriggerSlope.NEGATIVE,
+}
+def get_slope_enum(slope_string):
+    if slope_string in slopes:
+        return slopes[slope_string]
+    else:
+        raise TypeError('Incorrect slope string: {0}'.format(slope_string))
 
-        if precision == 0:
-            width = data_width
-        else:
-            width = data_width + 1
-
-        final_reading = math.fabs(reading / divisor)
-        final_reading = math.pow(10.0, -precision) * math.floor(0.5 + math.pow(10.0, precision) * final_reading)
-        final_reading = math.fabs(final_reading)
-
-        sign = '-' if reading < 0 and (reading / divisor) * math.pow(10.0, precision) <= -0.5 else ' '
-
-        reading_string = sign + "{value:0{width}.{precision}f}".format(value=float(final_reading), width=width, precision=precision, sign=sign)
-
-    # calculate range string
-    range_string = '{:.2f}'.format(range / range_divisor)
-
-    # calculate function string
-    function_units = function_units[function] if function in function_units else ''
-    function_unit_modifiers = unit_modifiers[order_of_subunit * 3]
-
-    function_string = function_unit_modifiers + function_units
-
-    return function_string, range_string, reading_string
-
+modes = {
+    'Entering': niscope.TriggerWindowMode.ENTERING,
+    'Leaving': niscope.TriggerWindowMode.LEAVING,
+}
+def get_mode_enum(mode_string):
+    if mode_string in modes:
+        return modes[mode_string]
+    else:
+        raise TypeError('Incorrect mode string: {0}'.format(mode_string))
 
 class SFP(wx.Frame):
     def __init__(self, *args, **kwds):
         # begin wxGlade: SFP.__init__
         kwds["style"] = kwds.get("style", 0) | wx.DEFAULT_FRAME_STYLE
         wx.Frame.__init__(self, *args, **kwds)
-        self.SetSize((500, 600))
-
-        # Menu Bar
-        self.menu_bar = wx.MenuBar()
-        self.SetMenuBar(self.menu_bar)
-        # Menu Bar end
+        self.SetSize((550, 800))
         self._devices = wx.ComboBox(self, wx.ID_ANY, choices=[], style=wx.CB_DROPDOWN)
-        self._function = wx.ComboBox(self, wx.ID_ANY, choices=[], style=wx.CB_DROPDOWN)
-        self._digits = wx.ComboBox(self, wx.ID_ANY, choices=[], style=wx.CB_DROPDOWN)
-        self._range = wx.SpinCtrlDouble(self, wx.ID_ANY, "1", min=0, max=1000)
-        self.Bind(wx.EVT_SPINCTRLDOUBLE, self.OnConfigUpdate, self._range)
-        self._range_display = wx.StaticText(self, wx.ID_ANY, "")
-        self._reading_display = wx.StaticText(self, wx.ID_ANY, "")
+        self._modinst_session = nimodinst.Session('niscope')
+        for dev in self._modinst_session:
+            dev_name = dev.device_name
+            self._devices.Append('{0}'.format(dev_name))
+        self._min_sample_rate = wx.SpinCtrlDouble(self, wx.ID_ANY, "1000000.0", min=0.0, max=100000000.0)
+        self._min_record_length = wx.SpinCtrl(self, wx.ID_ANY, "1000", min=0, max=100000000)
+        self._channel_list = wx.TextCtrl(self, wx.ID_ANY, "0")
+        self._vertical_range = wx.SpinCtrlDouble(self, wx.ID_ANY, "1.0", min=0.0, max=100.0)
+        self._probe_attenuation = wx.SpinCtrlDouble(self, wx.ID_ANY, "1.0", min=0.0, max=100.0)
+        self._vertical_offset = wx.SpinCtrlDouble(self, wx.ID_ANY, "0.0", min=0.0, max=100.0)
+        self._vertical_coupling = wx.ComboBox(self, wx.ID_ANY, choices=["AC", "DC", "Ground"], style=wx.CB_DROPDOWN | wx.CB_READONLY)
+        self._trigger_type = wx.Notebook(self, wx.ID_ANY)
+        self._trigger_type_immediate = wx.Panel(self._trigger_type, wx.ID_ANY)
+        self._trigger_type_edge = wx.Panel(self._trigger_type, wx.ID_ANY)
+        self._trigger_source_edge = wx.TextCtrl(self._trigger_type_edge, wx.ID_ANY, "0")
+        self._trigger_level_edge = wx.SpinCtrlDouble(self._trigger_type_edge, wx.ID_ANY, "0.0", min=0.0, max=30.0)
+        self._trigger_slope_edge = wx.ComboBox(self._trigger_type_edge, wx.ID_ANY, choices=["Positive", "Negative"], style=wx.CB_DROPDOWN | wx.CB_READONLY)
+        self._trigger_coupling_edge = wx.ComboBox(self._trigger_type_edge, wx.ID_ANY, choices=["AC", "DC", "HF_REJECT", "LF_REJECT", "AC_PLUS_HF_REJECT"], style=wx.CB_DROPDOWN | wx.CB_READONLY)
+        self._trigger_type_digital = wx.Panel(self._trigger_type, wx.ID_ANY)
+        self._trigger_source_digital = wx.TextCtrl(self._trigger_type_digital, wx.ID_ANY, "VAL_RTSI_0")
+        self._trigger_slope_digital = wx.ComboBox(self._trigger_type_digital, wx.ID_ANY, choices=[], style=wx.CB_DROPDOWN)
+        self._trigger_type_window = wx.Panel(self._trigger_type, wx.ID_ANY)
+        self._trigger_source_window = wx.TextCtrl(self._trigger_type_window, wx.ID_ANY, "0")
+        self._mode_window = wx.ComboBox(self._trigger_type_window, wx.ID_ANY, choices=[], style=wx.CB_DROPDOWN)
+        self._low_level_window = wx.SpinCtrlDouble(self._trigger_type_window, wx.ID_ANY, "0.0", min=-30.0, max=30.0)
+        self._high_level_window = wx.SpinCtrlDouble(self._trigger_type_window, wx.ID_ANY, "0.0", min=-30.0, max=30.0)
+        self._trigger_coupling_window = wx.ComboBox(self._trigger_type_window, wx.ID_ANY, choices=["AC", "DC", "HF_REJECT", "LF_REJECT", "AC_PLUS_HF_REJECT"], style=wx.CB_DROPDOWN)
+        self._trigger_type_hysteresis = wx.Panel(self._trigger_type, wx.ID_ANY)
+        self._trigger_source_hysteresis = wx.TextCtrl(self._trigger_type_hysteresis, wx.ID_ANY, "0")
+        self._trigger_level_hysteresis = wx.SpinCtrlDouble(self._trigger_type_hysteresis, wx.ID_ANY, "0.0", min=-30.0, max=30.0)
+        self._hysteresis = wx.SpinCtrlDouble(self._trigger_type_hysteresis, wx.ID_ANY, "0.0", min=-30.0, max=30.0)
+        self._trigger_slope_hysteresis = wx.ComboBox(self._trigger_type_hysteresis, wx.ID_ANY, choices=["Positive", "Negative"], style=wx.CB_DROPDOWN | wx.CB_READONLY)
+        self._trigger_coupling_hysteresis = wx.ComboBox(self._trigger_type_hysteresis, wx.ID_ANY, choices=["AC", "DC", "HF_REJECT", "LF_REJECT", "AC_PLUS_HF_REJECT"], style=wx.CB_DROPDOWN | wx.CB_READONLY)
+        figure = Figure()
+        self._waveform_axes = figure.add_subplot(111)
+        self._waveform_canvas = FigureCanvas(self, wx.ID_ANY, figure)
         self._status = wx.StaticText(self, wx.ID_ANY, "Good!")
+        # Extra code that we need somewhere in the generated code
+        self._timer = wx.Timer(self, wx.ID_ANY)
+        self._running = False
+        self.Bind(wx.EVT_TIMER, self.OnUpdate, self._timer)
+        self._timer.Start(250)
+        self._dev_name = ''
+        self._session = None
 
         self.__set_properties()
         self.__do_layout()
 
-        self.Bind(wx.EVT_TEXT, self.OnConfigUpdate, self._function)
-        self.Bind(wx.EVT_TEXT_ENTER, self.OnConfigUpdate, self._function)
-        self.Bind(wx.EVT_COMBOBOX, self.OnConfigUpdate, self._digits)
-        self.Bind(wx.EVT_TEXT, self.OnConfigUpdate, self._digits)
-        self.Bind(wx.EVT_TEXT_ENTER, self.OnConfigUpdate, self._digits)
+        self.Bind(wx.EVT_COMBOBOX, self.OnConfigUpdate, self._devices)
+        self.Bind(wx.EVT_TEXT, self.OnConfigUpdate, self._devices)
+        self.Bind(wx.EVT_TEXT_ENTER, self.OnConfigUpdate, self._devices)
+        self.Bind(wx.EVT_SPINCTRLDOUBLE, self.OnConfigUpdate, self._min_sample_rate)
+        self.Bind(wx.EVT_SPINCTRLDOUBLE, self.OnConfigUpdate, self._min_record_length)
+        self.Bind(wx.EVT_TEXT_ENTER, self.OnConfigUpdate, self._channel_list)
+        self.Bind(wx.EVT_SPINCTRLDOUBLE, self.OnConfigUpdate, self._vertical_range)
+        self.Bind(wx.EVT_SPINCTRLDOUBLE, self.OnConfigUpdate, self._probe_attenuation)
+        self.Bind(wx.EVT_SPINCTRLDOUBLE, self.OnConfigUpdate, self._vertical_offset)
+        self.Bind(wx.EVT_COMBOBOX, self.OnConfigUpdate, self._vertical_coupling)
+        self.Bind(wx.EVT_TEXT, self.OnConfigUpdate, self._vertical_coupling)
+        self.Bind(wx.EVT_TEXT_ENTER, self.OnConfigUpdate, self._vertical_coupling)
+        self.Bind(wx.EVT_TEXT, self.OnConfigUpdate, self._trigger_source_edge)
+        self.Bind(wx.EVT_TEXT_ENTER, self.OnConfigUpdate, self._trigger_source_edge)
+        self.Bind(wx.EVT_SPINCTRLDOUBLE, self.OnConfigUpdate, self._trigger_level_edge)
+        self.Bind(wx.EVT_COMBOBOX, self.OnConfigUpdate, self._trigger_slope_edge)
+        self.Bind(wx.EVT_TEXT, self.OnConfigUpdate, self._trigger_slope_edge)
+        self.Bind(wx.EVT_TEXT_ENTER, self.OnConfigUpdate, self._trigger_slope_edge)
+        self.Bind(wx.EVT_COMBOBOX, self.OnConfigUpdate, self._trigger_coupling_edge)
+        self.Bind(wx.EVT_TEXT, self.OnConfigUpdate, self._trigger_coupling_edge)
+        self.Bind(wx.EVT_TEXT_ENTER, self.OnConfigUpdate, self._trigger_coupling_edge)
+        self.Bind(wx.EVT_TEXT, self.OnConfigUpdate, self._trigger_source_digital)
+        self.Bind(wx.EVT_TEXT_ENTER, self.OnConfigUpdate, self._trigger_source_digital)
+        self.Bind(wx.EVT_COMBOBOX, self.OnConfigUpdate, self._trigger_slope_digital)
+        self.Bind(wx.EVT_TEXT, self.OnConfigUpdate, self._trigger_slope_digital)
+        self.Bind(wx.EVT_TEXT_ENTER, self.OnConfigUpdate, self._trigger_slope_digital)
+        self.Bind(wx.EVT_TEXT, self.OnConfigUpdate, self._trigger_source_window)
+        self.Bind(wx.EVT_TEXT_ENTER, self.OnConfigUpdate, self._trigger_source_window)
+        self.Bind(wx.EVT_COMBOBOX, self.OnConfigUpdate, self._mode_window)
+        self.Bind(wx.EVT_TEXT, self.OnConfigUpdate, self._mode_window)
+        self.Bind(wx.EVT_TEXT_ENTER, self.OnConfigUpdate, self._mode_window)
+        self.Bind(wx.EVT_SPINCTRLDOUBLE, self.OnConfigUpdate, self._low_level_window)
+        self.Bind(wx.EVT_SPINCTRLDOUBLE, self.OnConfigUpdate, self._high_level_window)
+        self.Bind(wx.EVT_COMBOBOX, self.OnConfigUpdate, self._trigger_coupling_window)
+        self.Bind(wx.EVT_TEXT, self.OnConfigUpdate, self._trigger_coupling_window)
+        self.Bind(wx.EVT_TEXT_ENTER, self.OnConfigUpdate, self._trigger_coupling_window)
+        self.Bind(wx.EVT_TEXT, self.OnConfigUpdate, self._trigger_source_hysteresis)
+        self.Bind(wx.EVT_TEXT_ENTER, self.OnConfigUpdate, self._trigger_source_hysteresis)
+        self.Bind(wx.EVT_SPINCTRLDOUBLE, self.OnConfigUpdate, self._trigger_level_hysteresis)
+        self.Bind(wx.EVT_SPINCTRLDOUBLE, self.OnConfigUpdate, self._hysteresis)
+        self.Bind(wx.EVT_COMBOBOX, self.OnConfigUpdate, self._trigger_slope_hysteresis)
+        self.Bind(wx.EVT_TEXT, self.OnConfigUpdate, self._trigger_slope_hysteresis)
+        self.Bind(wx.EVT_TEXT_ENTER, self.OnConfigUpdate, self._trigger_slope_hysteresis)
+        self.Bind(wx.EVT_COMBOBOX, self.OnConfigUpdate, self._trigger_coupling_hysteresis)
+        self.Bind(wx.EVT_TEXT, self.OnConfigUpdate, self._trigger_coupling_hysteresis)
+        self.Bind(wx.EVT_TEXT_ENTER, self.OnConfigUpdate, self._trigger_coupling_hysteresis)
         # end wxGlade
-
-        self._session = None
-        self._modinst_session = None
-        self._dev_name = None
-
-        # and a menu
-        menu = wx.Menu()
-
-        # add an item to the menu, using \tKeyName automatically
-        # creates an accelerator, the third param is some help text
-        # that will show up in the statusbar
-        menu.Append(wx.ID_EXIT, "E&xit\tAlt-X", "Exit this simple sample")
-
-        # bind the menu event to an event handler
-        # self.Bind(wx.EVT_MENU, self.OnTimeToClose, id=wx.ID_EXIT)
-
-        # and put the menu on the menubar
-        self.menu_bar.Append(menu, "&File")
-        self.SetMenuBar(self.menu_bar)
-
-        self.CreateStatusBar()
-
-        self._modinst_session = nimodinst.Session('nidmm')
-        for dev in self._modinst_session:
-            dev_name = dev.device_name
-            self._devices.Append('{0}'.format(dev_name))
-
-        self._devices.SetSelection(0)
-
-        for f in list(nidmm.Function.__members__.keys()):
-            self._function.Append('{0}'.format(f))
-
-        self._function.SetSelection(0)
-
-        digits = [3.5, 4.5, 5.5, 6.5, 7.5]
-        for d in digits:
-            self._digits.Append('{0}'.format(d))
-
-        self._digits.SetSelection(2)
-
-        self._timer = wx.Timer(self, wx.ID_ANY)
-        self.Bind(wx.EVT_TIMER, self.OnUpdate, self._timer)
-
-        self.OnConfigUpdate(None)
-        self._timer.Start(250)
 
     def __set_properties(self):
         # begin wxGlade: SFP.__set_properties
-        self.SetTitle("NI-DMM Simple Soft Front Panel")
-        self._range_display.SetFont(wx.Font(20, wx.MODERN, wx.NORMAL, wx.NORMAL, 0, ""))
-        self._reading_display.SetFont(wx.Font(20, wx.MODERN, wx.NORMAL, wx.NORMAL, 0, ""))
+        self.SetTitle("NI-SCOPE Simple Soft Front Panel")
+        self._vertical_coupling.SetSelection(0)
+        self._trigger_slope_edge.SetSelection(0)
+        self._trigger_coupling_edge.SetSelection(0)
+        self._trigger_coupling_window.SetSelection(0)
+        self._trigger_slope_hysteresis.SetSelection(0)
+        self._trigger_coupling_hysteresis.SetSelection(0)
         # end wxGlade
 
     def __do_layout(self):
@@ -200,94 +181,249 @@ class SFP(wx.Frame):
         sizer_1 = wx.BoxSizer(wx.VERTICAL)
         sizer_10 = wx.StaticBoxSizer(wx.StaticBox(self, wx.ID_ANY, "Status"), wx.HORIZONTAL)
         sizer_5 = wx.StaticBoxSizer(wx.StaticBox(self, wx.ID_ANY, "Results:"), wx.VERTICAL)
-        sizer_7 = wx.BoxSizer(wx.HORIZONTAL)
-        sizer_6 = wx.BoxSizer(wx.HORIZONTAL)
         sizer_2 = wx.StaticBoxSizer(wx.StaticBox(self, wx.ID_ANY, "Configuration"), wx.VERTICAL)
-        sizer_9 = wx.BoxSizer(wx.HORIZONTAL)
-        sizer_8 = wx.BoxSizer(wx.HORIZONTAL)
+        grid_sizer_5 = wx.GridSizer(0, 2, 0, 0)
+        grid_sizer_4 = wx.GridSizer(0, 2, 0, 0)
+        grid_sizer_3 = wx.GridSizer(4, 2, 0, 0)
+        grid_sizer_2 = wx.GridSizer(0, 2, 0, 0)
+        sizer_4 = wx.StaticBoxSizer(wx.StaticBox(self, wx.ID_ANY, "Vertical"), wx.VERTICAL)
+        grid_sizer_1 = wx.GridSizer(0, 4, 0, 0)
+        sizer_11 = wx.StaticBoxSizer(wx.StaticBox(self, wx.ID_ANY, "Horizontal"), wx.VERTICAL)
+        grid_sizer_6 = wx.GridSizer(0, 4, 0, 0)
         sizer_3 = wx.BoxSizer(wx.HORIZONTAL)
         label_1 = wx.StaticText(self, wx.ID_ANY, "Device:  ")
         label_1.SetFont(wx.Font(11, wx.DEFAULT, wx.NORMAL, wx.NORMAL, 0, ""))
-        sizer_3.Add(label_1, 0, 0, 0)
-        sizer_3.Add(self._devices, 0, 0, 0)
+        sizer_3.Add(label_1, 25, wx.ALIGN_CENTER_VERTICAL, 0)
+        sizer_3.Add(self._devices, 25, wx.ALIGN_CENTER_VERTICAL | wx.ALIGN_RIGHT | wx.RIGHT, 5)
+        sizer_3.Add((20, 20), 50, 0, 0)
         sizer_1.Add(sizer_3, 3, wx.EXPAND, 0)
         static_line_1 = wx.StaticLine(self, wx.ID_ANY)
         sizer_1.Add(static_line_1, 1, wx.EXPAND, 0)
-        sizer_1.Add((20, 20), 1, 0, 0)
-        label_8 = wx.StaticText(self, wx.ID_ANY, "Function:")
-        sizer_8.Add(label_8, 0, 0, 0)
-        sizer_8.Add(self._function, 0, 0, 0)
-        sizer_8.Add((20, 20), 0, 0, 0)
-        label_9 = wx.StaticText(self, wx.ID_ANY, "Resolution")
-        sizer_8.Add(label_9, 0, 0, 0)
-        sizer_8.Add(self._digits, 0, 0, 0)
-        sizer_8.Add((20, 20), 0, 0, 0)
-        sizer_2.Add(sizer_8, 1, wx.EXPAND, 0)
-        label_10 = wx.StaticText(self, wx.ID_ANY, "Range:")
-        sizer_9.Add(label_10, 0, 0, 0)
-        sizer_9.Add(self._range, 0, 0, 0)
-        sizer_9.Add((20, 20), 0, 0, 0)
-        sizer_2.Add(sizer_9, 1, wx.EXPAND, 0)
+        label_11 = wx.StaticText(self, wx.ID_ANY, "Min Sample Rate")
+        grid_sizer_6.Add(label_11, 25, wx.ALIGN_CENTER_VERTICAL, 0)
+        grid_sizer_6.Add(self._min_sample_rate, 25, wx.ALIGN_CENTER_VERTICAL | wx.ALIGN_RIGHT | wx.RIGHT, 5)
+        label_8 = wx.StaticText(self, wx.ID_ANY, "Min Record Length")
+        grid_sizer_6.Add(label_8, 25, wx.ALIGN_CENTER_VERTICAL, 0)
+        grid_sizer_6.Add(self._min_record_length, 25, wx.ALIGN_CENTER_VERTICAL | wx.ALIGN_RIGHT, 0)
+        label_6 = wx.StaticText(self, wx.ID_ANY, "Channels")
+        grid_sizer_6.Add(label_6, 25, 0, 0)
+        grid_sizer_6.Add(self._channel_list, 25, 0, 0)
+        grid_sizer_6.Add((20, 20), 25, 0, 0)
+        grid_sizer_6.Add((20, 20), 25, 0, 0)
+        sizer_11.Add(grid_sizer_6, 1, wx.EXPAND, 0)
+        sizer_2.Add(sizer_11, 0, wx.EXPAND, 0)
+        label_2 = wx.StaticText(self, wx.ID_ANY, "Vertical Range (V)")
+        grid_sizer_1.Add(label_2, 25, wx.ALIGN_CENTER_VERTICAL, 0)
+        grid_sizer_1.Add(self._vertical_range, 25, wx.ALIGN_CENTER_VERTICAL | wx.ALIGN_RIGHT | wx.RIGHT, 5)
+        label_3 = wx.StaticText(self, wx.ID_ANY, "Probe Attenuation")
+        grid_sizer_1.Add(label_3, 25, wx.ALIGN_CENTER_VERTICAL, 0)
+        grid_sizer_1.Add(self._probe_attenuation, 25, wx.ALIGN_CENTER_VERTICAL | wx.ALIGN_RIGHT | wx.LEFT, 0)
+        label_4 = wx.StaticText(self, wx.ID_ANY, "Vertical Offset (V)")
+        grid_sizer_1.Add(label_4, 25, wx.ALIGN_CENTER_VERTICAL, 0)
+        grid_sizer_1.Add(self._vertical_offset, 25, wx.ALIGN_CENTER_VERTICAL | wx.ALIGN_RIGHT | wx.RIGHT, 5)
+        label_5 = wx.StaticText(self, wx.ID_ANY, "Vertical Coupling")
+        grid_sizer_1.Add(label_5, 25, wx.ALIGN_CENTER_VERTICAL, 0)
+        grid_sizer_1.Add(self._vertical_coupling, 25, wx.ALIGN_CENTER_VERTICAL | wx.ALIGN_RIGHT | wx.LEFT, 0)
+        sizer_4.Add(grid_sizer_1, 1, wx.EXPAND, 0)
+        sizer_2.Add(sizer_4, 0, wx.EXPAND, 0)
+        label_9 = wx.StaticText(self._trigger_type_edge, wx.ID_ANY, "Trigger Source")
+        grid_sizer_2.Add(label_9, 0, wx.ALIGN_CENTER_VERTICAL | wx.ALIGN_RIGHT | wx.RIGHT, 5)
+        grid_sizer_2.Add(self._trigger_source_edge, 0, wx.ALIGN_CENTER_VERTICAL, 0)
+        label_10 = wx.StaticText(self._trigger_type_edge, wx.ID_ANY, "Trigger Level")
+        grid_sizer_2.Add(label_10, 0, wx.ALIGN_CENTER_VERTICAL | wx.ALIGN_RIGHT | wx.RIGHT, 5)
+        grid_sizer_2.Add(self._trigger_level_edge, 0, wx.ALIGN_CENTER_VERTICAL, 0)
+        label_12 = wx.StaticText(self._trigger_type_edge, wx.ID_ANY, "Trigger Slope")
+        grid_sizer_2.Add(label_12, 0, wx.ALIGN_CENTER_VERTICAL | wx.ALIGN_RIGHT | wx.RIGHT, 5)
+        grid_sizer_2.Add(self._trigger_slope_edge, 0, wx.ALIGN_CENTER_VERTICAL, 0)
+        label_13 = wx.StaticText(self._trigger_type_edge, wx.ID_ANY, "Trigger Coupling")
+        grid_sizer_2.Add(label_13, 0, wx.ALIGN_CENTER_VERTICAL | wx.ALIGN_RIGHT | wx.RIGHT, 5)
+        grid_sizer_2.Add(self._trigger_coupling_edge, 0, wx.ALIGN_CENTER_VERTICAL, 0)
+        self._trigger_type_edge.SetSizer(grid_sizer_2)
+        label_14 = wx.StaticText(self._trigger_type_digital, wx.ID_ANY, "Trigger Source")
+        grid_sizer_3.Add(label_14, 0, wx.ALIGN_CENTER_VERTICAL | wx.ALIGN_RIGHT | wx.RIGHT, 5)
+        grid_sizer_3.Add(self._trigger_source_digital, 0, wx.ALIGN_CENTER_VERTICAL, 0)
+        label_15 = wx.StaticText(self._trigger_type_digital, wx.ID_ANY, "Trigger Slope")
+        grid_sizer_3.Add(label_15, 0, wx.ALIGN_CENTER_VERTICAL | wx.ALIGN_RIGHT | wx.RIGHT, 5)
+        grid_sizer_3.Add(self._trigger_slope_digital, 0, wx.ALIGN_CENTER_VERTICAL, 0)
+        grid_sizer_3.Add((20, 20), 0, 0, 0)
+        grid_sizer_3.Add((20, 20), 0, 0, 0)
+        grid_sizer_3.Add((20, 20), 0, 0, 0)
+        grid_sizer_3.Add((20, 20), 0, 0, 0)
+        self._trigger_type_digital.SetSizer(grid_sizer_3)
+        label_16 = wx.StaticText(self._trigger_type_window, wx.ID_ANY, "Trigger Source")
+        grid_sizer_4.Add(label_16, 0, wx.ALIGN_CENTER_VERTICAL | wx.ALIGN_RIGHT | wx.RIGHT, 5)
+        grid_sizer_4.Add(self._trigger_source_window, 0, wx.ALIGN_CENTER_VERTICAL, 0)
+        label_17 = wx.StaticText(self._trigger_type_window, wx.ID_ANY, "Window Mode")
+        grid_sizer_4.Add(label_17, 0, wx.ALIGN_CENTER_VERTICAL | wx.ALIGN_RIGHT | wx.RIGHT, 5)
+        grid_sizer_4.Add(self._mode_window, 0, wx.ALIGN_CENTER_VERTICAL, 0)
+        label_18 = wx.StaticText(self._trigger_type_window, wx.ID_ANY, "Window Low Level")
+        grid_sizer_4.Add(label_18, 0, wx.ALIGN_CENTER_VERTICAL | wx.ALIGN_RIGHT | wx.RIGHT, 5)
+        grid_sizer_4.Add(self._low_level_window, 0, wx.ALIGN_CENTER_VERTICAL, 0)
+        label_19 = wx.StaticText(self._trigger_type_window, wx.ID_ANY, "Window High Level")
+        grid_sizer_4.Add(label_19, 0, wx.ALIGN_CENTER_VERTICAL | wx.ALIGN_RIGHT | wx.RIGHT, 5)
+        grid_sizer_4.Add(self._high_level_window, 0, wx.ALIGN_CENTER_VERTICAL, 0)
+        label_20 = wx.StaticText(self._trigger_type_window, wx.ID_ANY, "Trigger Coupling")
+        grid_sizer_4.Add(label_20, 0, wx.ALIGN_CENTER_VERTICAL | wx.ALIGN_RIGHT | wx.RIGHT, 5)
+        grid_sizer_4.Add(self._trigger_coupling_window, 0, wx.ALIGN_CENTER_VERTICAL, 0)
+        self._trigger_type_window.SetSizer(grid_sizer_4)
+        label_21 = wx.StaticText(self._trigger_type_hysteresis, wx.ID_ANY, "Trigger Source")
+        grid_sizer_5.Add(label_21, 0, wx.ALIGN_CENTER_VERTICAL | wx.ALIGN_RIGHT | wx.RIGHT, 5)
+        grid_sizer_5.Add(self._trigger_source_hysteresis, 0, 0, 0)
+        label_22 = wx.StaticText(self._trigger_type_hysteresis, wx.ID_ANY, "Trigger Level")
+        grid_sizer_5.Add(label_22, 0, wx.ALIGN_CENTER_VERTICAL | wx.ALIGN_RIGHT | wx.RIGHT, 5)
+        grid_sizer_5.Add(self._trigger_level_hysteresis, 0, 0, 0)
+        label_23 = wx.StaticText(self._trigger_type_hysteresis, wx.ID_ANY, "Hysteresis")
+        grid_sizer_5.Add(label_23, 0, wx.ALIGN_CENTER_VERTICAL | wx.ALIGN_RIGHT | wx.RIGHT, 5)
+        grid_sizer_5.Add(self._hysteresis, 0, 0, 0)
+        label_24 = wx.StaticText(self._trigger_type_hysteresis, wx.ID_ANY, "Trigger Slope")
+        grid_sizer_5.Add(label_24, 0, wx.ALIGN_CENTER_VERTICAL | wx.ALIGN_RIGHT | wx.RIGHT, 5)
+        grid_sizer_5.Add(self._trigger_slope_hysteresis, 0, 0, 0)
+        label_25 = wx.StaticText(self._trigger_type_hysteresis, wx.ID_ANY, "Trigger Coupling")
+        grid_sizer_5.Add(label_25, 0, wx.ALIGN_CENTER_VERTICAL | wx.ALIGN_RIGHT | wx.RIGHT, 5)
+        grid_sizer_5.Add(self._trigger_coupling_hysteresis, 0, 0, 0)
+        self._trigger_type_hysteresis.SetSizer(grid_sizer_5)
+        self._trigger_type.AddPage(self._trigger_type_immediate, "Immediate")
+        self._trigger_type.AddPage(self._trigger_type_edge, "Edge")
+        self._trigger_type.AddPage(self._trigger_type_digital, "Digital")
+        self._trigger_type.AddPage(self._trigger_type_window, "Window")
+        self._trigger_type.AddPage(self._trigger_type_hysteresis, "Hysteresis")
+        sizer_2.Add(self._trigger_type, 0, wx.EXPAND, 0)
         sizer_1.Add(sizer_2, 15, wx.EXPAND, 0)
-        sizer_1.Add((20, 20), 1, 0, 0)
-        label_6 = wx.StaticText(self, wx.ID_ANY, "Range:  ")
-        sizer_6.Add(label_6, 20, 0, 0)
-        sizer_6.Add(self._range_display, 30, 0, 0)
-        sizer_6.Add((20, 20), 50, 0, 0)
-        sizer_5.Add(sizer_6, 1, wx.EXPAND, 0)
-        label_7 = wx.StaticText(self, wx.ID_ANY, "Reading:  ")
-        sizer_7.Add(label_7, 20, 0, 0)
-        sizer_7.Add(self._reading_display, 30, 0, 0)
-        sizer_7.Add((20, 20), 50, 0, 0)
-        sizer_5.Add(sizer_7, 1, wx.EXPAND, 0)
-        sizer_1.Add(sizer_5, 15, wx.EXPAND, 0)
-        sizer_1.Add((20, 20), 1, 0, 0)
-        sizer_10.Add(self._status, 100, 0, 0)
-        sizer_1.Add(sizer_10, 25, wx.EXPAND, 0)
+        sizer_5.Add(self._waveform_canvas, 0, wx.EXPAND, 0)
+        sizer_1.Add(sizer_5, 25, wx.EXPAND, 0)
+        sizer_10.Add(self._status, 0, 0, 0)
+        sizer_1.Add(sizer_10, 10, wx.EXPAND, 0)
         self.SetSizer(sizer_1)
         self.Layout()
         # end wxGlade
 
     def OnUpdate(self, event):  # noqa: N802
-        points_ready, _ = self._session.read_status()
+        if not self._running:
+            return
+
+        status = self._session.acquisition_status()
+        if status != niscope.AcquisitionStatus.COMPLETE:
+            return
+
         with warnings.catch_warnings(record=True) as w:
-            points = self._session.fetch_multi_point(points_ready)
+            try:
+                num_samples = int(self._min_record_length.GetValue())
+            except TypeError as e:
+                self._status.SetLabel('Error getting horizontal configuration: {0}'.format(str(e)))
+            wfm_infos = self._session.channels[self._channel_list.GetValue()].fetch(num_samples=num_samples)
             if len(w) > 0:  # that means we got a warning so we will put it in the status area
                 self._status.SetLabel(str(w[0].message))
 
-        actual_range = self._session.range
-        if len(points) > 0:
-            mode_str, range_str, data_str = format_meas(points[-1], nidmm.Function[self._dev_function], actual_range, self._dev_digits)
-            reading_display = data_str + ' ' + mode_str
-            range_display = range_str + ' ' + mode_str
-            self._reading_display.SetLabel(reading_display)
-            self._range_display.SetLabel(range_display)
+        if self._cached_x_increment != wfm_infos[0].x_increment or self._cached_absolute_initial_x != wfm_infos[0].absolute_initial_x or len(self._cached_x_axis_values) != num_samples:
+            self._cached_x_axis_values = []
+            start = wfm_infos[0].absolute_initial_x
+            for i in range(num_samples):
+                self._cached_x_axis_values.append(wfm_infos[0].absolute_initial_x + (i * wfm_infos[0].x_increment))
+            self._cached_x_increment = wfm_infos[0].x_increment
+            self._cached_absolute_initial_x = wfm_infos[0].absolute_initial_x
+
+        self._waveform_axes.clear()
+        for wfm_info in wfm_infos:
+            self._waveform_axes.plot(self._cached_x_axis_values, wfm_info.wfm)
+        self._waveform_canvas.draw()
 
     def OnConfigUpdate(self, event):  # noqa: N802
         current_dev_name = self._devices.GetStringSelection()
-        current_function = self._function.GetStringSelection()
-        try:
-            current_range = float(self._range.GetValue())
-        except TypeError:
-            current_range = 1.0
-        current_digits = float(self._digits.GetStringSelection())
 
         try:
             if current_dev_name != self._dev_name:
                 if self._session is not None:
+                    self._running = False
                     self._session.close()
-                self._session = nidmm.Session(current_dev_name)
-                self._session.configure_multi_point(trigger_count=0, sample_count=0, sample_trigger=nidmm.SampleTrigger.IMMEDIATE, sample_interval=-1)
+                self._session = niscope.Session(current_dev_name)
 
-            self._session.configure_measurement_digits(nidmm.Function[current_function], current_range, current_digits)
-            self._session._initiate()
-        except nidmm.Error as e:
+            # Get and validate parameters for configure vertical
+            try:
+                vert_range = float(self._vertical_range.GetValue())
+                coupling = get_vertical_coupling_enum(self._vertical_coupling.GetStringSelection())
+                vert_offset = float(self._vertical_offset.GetValue())
+                probe_atten = float(self._probe_attenuation.GetValue())
+            except TypeError as e:
+                self._status.SetLabel('Error getting vertical configuration: {0}'.format(str(e)))
+            self._session.configure_vertical(vert_range, coupling, vert_offset, probe_atten)
+
+            # Get and validate parameters for configure horizontal timing
+            try:
+                min_sample_rate = float(self._min_sample_rate.GetValue())
+                min_record_length = int(self._min_record_length.GetValue())
+            except TypeError as e:
+                self._status.SetLabel('Error getting horizontal configuration: {0}'.format(str(e)))
+            self._session.configure_horizontal_timing(min_sample_rate, min_record_length, 0.50, 1, True)
+
+            # Set Auto trigger to true
+            self._session.trigger_modifier = niscope.TriggerModifier.AUTO
+
+            # Determine trigger type and call configuration function
+            trigger_type = self._trigger_type.GetPageText(self._trigger_type.GetSelection())
+            if trigger_type == 'Immediate':
+                self.configure_trigger_immediate()
+            elif trigger_type == 'Edge':
+                self.configure_trigger_edge()
+            elif trigger_type == 'Digital':
+                self.configure_trigger_digital()
+            elif trigger_type == 'Window':
+                self.configure_trigger_window()
+            elif trigger_type == 'Hysteresis':
+                self.configure_trigger_hysteresis()
+            else:
+                raise TypeError('Invalid trigger type: {0}'.format(trigger_type))
+
+            self._session._initiate_acquisition()
+            self._running = True
+            self._cached_absolute_initial_x = 0.0
+            self._cached_x_increment = 0.0
+        except niscope.Error as e:
             self._status.SetLabel(str(e))
 
         self._dev_name = current_dev_name
-        self._dev_function = current_function
-        self._dev_range = current_range
-        self._dev_digits = current_digits
+
+    def configure_trigger_immediate(self):
+        self._session.configure_trigger_immediate()
+
+    def configure_trigger_edge(self):
+        try:
+            trigger_source = self._trigger_source_edge.GetLineText(0)
+            trigger_coupling = get_trigger_coupling_enum(self._trigger_coupling_edge.GetStringSelection())
+            trigger_slope = get_slope_enum(self._trigger_slope_edge.GetStringSelection())
+            trigger_level = float(self._trigger_level_edge.GetValue())
+        except TypeError as e:
+            self._status.SetLabel('Error getting edge trigger configuration: {0}'.format(str(e)))
+        self._session.configure_trigger_edge(trigger_source, trigger_coupling, trigger_level, trigger_slope)
+
+    def configure_trigger_digital(self):
+        try:
+            trigger_source = self._trigger_source_digital.GetLineText(0)
+            trigger_slope = get_slope_enum(self._trigger_slope_digital.GetStringSelection())
+        except TypeError as e:
+            self._status.SetLabel('Error getting digital trigger configuration: {0}'.format(str(e)))
+        self._session.configure_trigger_digital(trigger_source, trigger_slope)
+
+    def configure_trigger_window(self):
+        try:
+            trigger_source = self._trigger_source_window.GetLineText(0)
+            trigger_coupling = get_trigger_coupling_enum(self._trigger_coupling_window.GetStringSelection())
+            trigger_low = float(self._low_level_window.GetValue())
+            trigger_high = float(self._high_level_window.GetValue())
+            window_mode = get_mode_enum(self._mode_window.GetStringSelection())
+        except TypeError as e:
+            self._status.SetLabel('Error getting edge trigger configuration: {0}'.format(str(e)))
+        self._session.configure_trigger_window(trigger_source, trigger_low, trigger_high, window_mode, trigger_coupling)
+
+    def configure_trigger_hysteresis(self):
+        try:
+            trigger_source = self._trigger_source_hysteresis.GetLineText(0)
+            trigger_coupling = get_trigger_coupling_enum(self._trigger_coupling_hysteresis.GetStringSelection())
+            trigger_slope = get_slope_enum(self._trigger_slope_hysteresis.GetStringSelection())
+            trigger_level = float(self._trigger_level_hysteresis.GetValue())
+            hysteresis = float(self._hysteresis.GetValue())
+        except TypeError as e:
+            self._status.SetLabel('Error getting hysteresis trigger configuration: {0}'.format(str(e)))
+        self._session.configure_trigger_hysteresis(trigger_source, trigger_coupling, trigger_level, hysteresis, trigger_slope)
 
     def OnCloseWindow(self, event):  # noqa: N802
         self._session.close()
