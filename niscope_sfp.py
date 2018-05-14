@@ -326,7 +326,7 @@ class SFP(wx.Frame):
 
         self._waveform_axes.clear()
         for wfm_info in wfm_infos:
-            self._waveform_axes.plot(self._cached_x_axis_values, wfm_info.wfm)
+            self._waveform_axes.plot(self._cached_x_axis_values, wfm_info.samples)
         self._waveform_canvas.draw()
 
     def OnConfigUpdate(self, event):  # noqa: N802
