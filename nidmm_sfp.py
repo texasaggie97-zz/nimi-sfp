@@ -20,8 +20,8 @@ def format_meas(reading, function, range, resolution):
         nidmm.Function.AC_CURRENT: "A AC",
         nidmm.Function.DC_CURRENT: "A DC",
         nidmm.Function.DIODE: "V Diode",
-        nidmm.Function._2_WIRE_RES: "Ohm",
-        nidmm.Function._4_WIRE_RES: "Ohm",
+        nidmm.Function.TWO_WIRE_RES: "Ohm",
+        nidmm.Function.FOUR_WIRE_RES: "Ohm",
         nidmm.Function.PERIOD: "s",
         nidmm.Function.FREQ: "Hz",
         nidmm.Function.AC_VOLTS_DC_COUPLED: "V AC",
@@ -281,6 +281,7 @@ class SFP(wx.Frame):
 
             self._session.configure_measurement_digits(nidmm.Function[current_function], current_range, current_digits)
             self._session._initiate()
+            self._status.SetLabel("Good!")
         except nidmm.Error as e:
             self._status.SetLabel(str(e))
 
