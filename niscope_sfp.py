@@ -70,7 +70,7 @@ class SFP(wx.Frame):
         self.SetSize((550, 800))
         self._devices = wx.ComboBox(self, wx.ID_ANY, choices=[], style=wx.CB_DROPDOWN)
         self._modinst_session = nimodinst.Session('niscope')
-        for dev in self._modinst_session:
+        for dev in self._modinst_session.devices:
             dev_name = dev.device_name
             self._devices.Append('{0}'.format(dev_name))
         self._min_sample_rate = wx.SpinCtrlDouble(self, wx.ID_ANY, "1000000.0", min=0.0, max=100000000.0)

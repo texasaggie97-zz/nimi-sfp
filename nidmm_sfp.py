@@ -166,7 +166,7 @@ class SFP(wx.Frame):
         self.CreateStatusBar()
 
         self._modinst_session = nimodinst.Session('nidmm')
-        for dev in self._modinst_session:
+        for dev in self._modinst_session.devices:
             dev_name = dev.device_name
             self._devices.Append('{0}'.format(dev_name))
 
