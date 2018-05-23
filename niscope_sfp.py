@@ -322,11 +322,13 @@ class SFP(wx.Frame):
                 num_samples = int(self._min_record_length.GetValue())
             except TypeError as e:
                 self._status.SetLabel('Error getting horizontal configuration: {0}'.format(str(e)))  # noqa: E501
+                self._status.Wrap(500)
 
             channel_list = ','.join(['{0}'.format(i) for i in range(self._session.channel_count)]) if self._channel_list.GetValue() == '' else self._channel_list.GetValue()  # noqa: E501
             wfm_infos = self._session.channels[channel_list].fetch(num_samples=num_samples)  # noqa: E501
             if len(w) > 0:  # that means we got a warning so we will put it in the status area  # noqa: E501
                 self._status.SetLabel(str(w[0].message))
+                self._status.Wrap(500)
 
         if self._cached_x_increment != wfm_infos[0].x_increment or self._cached_absolute_initial_x != wfm_infos[0].absolute_initial_x or len(self._cached_x_axis_values) != num_samples:  # noqa: E501
             self._cached_x_axis_values = []
@@ -358,6 +360,7 @@ class SFP(wx.Frame):
                 probe_atten = float(self._probe_attenuation.GetValue())
             except TypeError as e:
                 self._status.SetLabel('Error getting vertical configuration: {0}'.format(str(e)))  # noqa: E501
+                self._status.Wrap(500)
             self._session.configure_vertical(vert_range, coupling, vert_offset, probe_atten)  # noqa: E501
 
             # Get and validate parameters for configure horizontal timing
@@ -366,6 +369,7 @@ class SFP(wx.Frame):
                 min_record_length = int(self._min_record_length.GetValue())
             except TypeError as e:
                 self._status.SetLabel('Error getting horizontal configuration: {0}'.format(str(e)))  # noqa: E501
+                self._status.Wrap(500)
             self._session.configure_horizontal_timing(min_sample_rate, min_record_length, 0.50, 1, True)  # noqa: E501
 
             # Set Auto trigger to true
@@ -392,6 +396,7 @@ class SFP(wx.Frame):
             self._cached_x_increment = 0.0
         except niscope.Error as e:
             self._status.SetLabel(str(e))
+            self._status.Wrap(500)
 
         self._dev_name = current_dev_name
 
@@ -406,6 +411,7 @@ class SFP(wx.Frame):
             trigger_level = float(self._trigger_level_edge.GetValue())
         except TypeError as e:
             self._status.SetLabel('Error getting edge trigger configuration: {0}'.format(str(e)))  # noqa: E501
+            self._status.Wrap(500)
         self._session.configure_trigger_edge(trigger_source, trigger_coupling, trigger_level, trigger_slope)  # noqa: E501
 
     def configure_trigger_digital(self):
@@ -414,6 +420,7 @@ class SFP(wx.Frame):
             trigger_slope = get_slope_enum(self._trigger_slope_digital.GetStringSelection())  # noqa: E501
         except TypeError as e:
             self._status.SetLabel('Error getting digital trigger configuration: {0}'.format(str(e)))  # noqa: E501
+            self._status.Wrap(500)
         self._session.configure_trigger_digital(trigger_source, trigger_slope)
 
     def configure_trigger_window(self):
@@ -425,6 +432,7 @@ class SFP(wx.Frame):
             window_mode = get_mode_enum(self._mode_window.GetStringSelection())
         except TypeError as e:
             self._status.SetLabel('Error getting edge trigger configuration: {0}'.format(str(e)))  # noqa: E501
+            self._status.Wrap(500)
         self._session.configure_trigger_window(trigger_source, trigger_low, trigger_high, window_mode, trigger_coupling)  # noqa: E501
 
     def configure_trigger_hysteresis(self):
@@ -436,6 +444,7 @@ class SFP(wx.Frame):
             hysteresis = float(self._hysteresis.GetValue())
         except TypeError as e:
             self._status.SetLabel('Error getting hysteresis trigger configuration: {0}'.format(str(e)))  # noqa: E501
+            self._status.Wrap(500)
         self._session.configure_trigger_hysteresis(trigger_source, trigger_coupling, trigger_level, hysteresis, trigger_slope)  # noqa: E501
 
     def OnCloseWindow(self, event):  # noqa: N802
