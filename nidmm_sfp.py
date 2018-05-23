@@ -255,6 +255,7 @@ class SFP(wx.Frame):
             points = self._session.fetch_multi_point(points_ready)
             if len(w) > 0:  # that means we got a warning so we will put it in the status area  # noqa: E501
                 self._status.SetLabel(str(w[0].message))
+                self._status.Wrap(450)
 
         actual_range = self._session.range
         if len(points) > 0:
@@ -285,6 +286,7 @@ class SFP(wx.Frame):
             self._status.SetLabel("Good!")
         except nidmm.Error as e:
             self._status.SetLabel(str(e))
+            self._status.Wrap(450)
 
         self._dev_name = current_dev_name
         self._dev_function = current_function
