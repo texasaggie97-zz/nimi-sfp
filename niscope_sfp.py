@@ -163,6 +163,7 @@ class SFP(wx.Frame):
         self.Bind(wx.EVT_COMBOBOX, self.OnConfigUpdate, self._trigger_coupling_hysteresis)
         self.Bind(wx.EVT_TEXT, self.OnConfigUpdate, self._trigger_coupling_hysteresis)
         self.Bind(wx.EVT_TEXT_ENTER, self.OnConfigUpdate, self._trigger_coupling_hysteresis)
+        self.Bind(wx.EVT_CLOSE, self.OnCloseWindow)
         # end wxGlade
 
     def __set_properties(self):
