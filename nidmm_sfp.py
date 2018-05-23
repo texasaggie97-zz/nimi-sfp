@@ -13,7 +13,7 @@ if USE_WIT:
 
 
 def format_meas(reading, function, range, resolution):
-    unit_modifiers = {-12: "p", -9: "n", -6: "u", -3: "m", 0: "", 3: "k", 6: "M", 9: "G"}
+    unit_modifiers = {-12: "p", -9: "n", -6: "u", -3: "m", 0: "", 3: "k", 6: "M", 9: "G"}  # noqa: E501
     function_units = {
         nidmm.Function.AC_VOLTS: "V AC",
         nidmm.Function.DC_VOLTS: "V DC",
@@ -64,11 +64,11 @@ def format_meas(reading, function, range, resolution):
         order_of_subunit = 0
         range_order_of_subunit = 0
 
-    # Calculate the divisor, the number by which to divide the reading to account
-    # for the subunit (u,m,k,M).  The number of digits after the decimal point
-    # is equal to the total number of digits minus the digits before the decimal
-    # point.  Remeber that there needs to be one character for the decimal point
-    # and one character for the - sign if present (+ does not appers, just a sp).
+    # Calculate the divisor, the number by which to divide the reading to account  # noqa: E501
+    # for the subunit (u,m,k,M).  The number of digits after the decimal point  # noqa: E501
+    # is equal to the total number of digits minus the digits before the decimal  # noqa: E501
+    # point.  Remeber that there needs to be one character for the decimal point  # noqa: E501
+    # and one character for the - sign if present (+ does not appers, just a sp).  # noqa: E501
     divisor = math.pow(10.0, 3 * order_of_subunit)
     range_divisor = math.pow(10.0, 3 * range_order_of_subunit)
 
@@ -77,7 +77,7 @@ def format_meas(reading, function, range, resolution):
     elif math.isinf(reading):
         reading_string = 'UNDRNG'
     else:
-        precision = data_width - 1 - int(math.floor(1e-9 + math.log10(temp_range / divisor)))
+        precision = data_width - 1 - int(math.floor(1e-9 + math.log10(temp_range / divisor)))  # noqa: E501
         if temp_range != range:
             reading_exp = math.floor(math.log10(math.fabs(reading)))
             reading_base = math.fabs(reading / math.pow(10.0, reading_exp))
@@ -94,18 +94,18 @@ def format_meas(reading, function, range, resolution):
             width = data_width + 1
 
         final_reading = math.fabs(reading / divisor)
-        final_reading = math.pow(10.0, -precision) * math.floor(0.5 + math.pow(10.0, precision) * final_reading)
+        final_reading = math.pow(10.0, -precision) * math.floor(0.5 + math.pow(10.0, precision) * final_reading)  # noqa: E501
         final_reading = math.fabs(final_reading)
 
-        sign = '-' if reading < 0 and (reading / divisor) * math.pow(10.0, precision) <= -0.5 else ' '
+        sign = '-' if reading < 0 and (reading / divisor) * math.pow(10.0, precision) <= -0.5 else ' '  # noqa: E501
 
-        reading_string = sign + "{value:0{width}.{precision}f}".format(value=float(final_reading), width=width, precision=precision, sign=sign)
+        reading_string = sign + "{value:0{width}.{precision}f}".format(value=float(final_reading), width=width, precision=precision, sign=sign)  # noqa: E501
 
     # calculate range string
     range_string = '{:.2f}'.format(range / range_divisor)
 
     # calculate function string
-    function_units = function_units[function] if function in function_units else ''
+    function_units = function_units[function] if function in function_units else ''  # noqa: E501
     function_unit_modifiers = unit_modifiers[order_of_subunit * 3]
 
     function_string = function_unit_modifiers + function_units
@@ -124,9 +124,9 @@ class SFP(wx.Frame):
         self.menu_bar = wx.MenuBar()
         self.SetMenuBar(self.menu_bar)
         # Menu Bar end
-        self._devices = wx.ComboBox(self, wx.ID_ANY, choices=[], style=wx.CB_DROPDOWN)
-        self._function = wx.ComboBox(self, wx.ID_ANY, choices=[], style=wx.CB_DROPDOWN)
-        self._digits = wx.ComboBox(self, wx.ID_ANY, choices=[], style=wx.CB_DROPDOWN)
+        self._devices = wx.ComboBox(self, wx.ID_ANY, choices=[], style=wx.CB_DROPDOWN)  # noqa: E501
+        self._function = wx.ComboBox(self, wx.ID_ANY, choices=[], style=wx.CB_DROPDOWN)  # noqa: E501
+        self._digits = wx.ComboBox(self, wx.ID_ANY, choices=[], style=wx.CB_DROPDOWN)  # noqa: E501
         self._range = wx.SpinCtrlDouble(self, wx.ID_ANY, "1", min=0, max=1000)
         self.Bind(wx.EVT_SPINCTRLDOUBLE, self.OnConfigUpdate, self._range)
         self._range_display = wx.StaticText(self, wx.ID_ANY, "")
@@ -192,18 +192,18 @@ class SFP(wx.Frame):
     def __set_properties(self):
         # begin wxGlade: SFP.__set_properties
         self.SetTitle("NI-DMM Simple Soft Front Panel")
-        self._range_display.SetFont(wx.Font(20, wx.MODERN, wx.NORMAL, wx.NORMAL, 0, ""))
-        self._reading_display.SetFont(wx.Font(20, wx.MODERN, wx.NORMAL, wx.NORMAL, 0, ""))
+        self._range_display.SetFont(wx.Font(20, wx.MODERN, wx.NORMAL, wx.NORMAL, 0, ""))  # noqa: E501
+        self._reading_display.SetFont(wx.Font(20, wx.MODERN, wx.NORMAL, wx.NORMAL, 0, ""))  # noqa: E501
         # end wxGlade
 
     def __do_layout(self):
         # begin wxGlade: SFP.__do_layout
         sizer_1 = wx.BoxSizer(wx.VERTICAL)
-        sizer_10 = wx.StaticBoxSizer(wx.StaticBox(self, wx.ID_ANY, "Status"), wx.HORIZONTAL)
-        sizer_5 = wx.StaticBoxSizer(wx.StaticBox(self, wx.ID_ANY, "Results:"), wx.VERTICAL)
+        sizer_10 = wx.StaticBoxSizer(wx.StaticBox(self, wx.ID_ANY, "Status"), wx.HORIZONTAL)  # noqa: E501
+        sizer_5 = wx.StaticBoxSizer(wx.StaticBox(self, wx.ID_ANY, "Results:"), wx.VERTICAL)  # noqa: E501
         sizer_7 = wx.BoxSizer(wx.HORIZONTAL)
         sizer_6 = wx.BoxSizer(wx.HORIZONTAL)
-        sizer_2 = wx.StaticBoxSizer(wx.StaticBox(self, wx.ID_ANY, "Configuration"), wx.VERTICAL)
+        sizer_2 = wx.StaticBoxSizer(wx.StaticBox(self, wx.ID_ANY, "Configuration"), wx.VERTICAL)  # noqa: E501
         sizer_9 = wx.BoxSizer(wx.HORIZONTAL)
         sizer_8 = wx.BoxSizer(wx.HORIZONTAL)
         sizer_3 = wx.BoxSizer(wx.HORIZONTAL)
@@ -253,12 +253,12 @@ class SFP(wx.Frame):
         points_ready, _ = self._session.read_status()
         with warnings.catch_warnings(record=True) as w:
             points = self._session.fetch_multi_point(points_ready)
-            if len(w) > 0:  # that means we got a warning so we will put it in the status area
+            if len(w) > 0:  # that means we got a warning so we will put it in the status area  # noqa: E501
                 self._status.SetLabel(str(w[0].message))
 
         actual_range = self._session.range
         if len(points) > 0:
-            mode_str, range_str, data_str = format_meas(points[-1], nidmm.Function[self._dev_function], actual_range, self._dev_digits)
+            mode_str, range_str, data_str = format_meas(points[-1], nidmm.Function[self._dev_function], actual_range, self._dev_digits)  # noqa: E501
             reading_display = data_str + ' ' + mode_str
             range_display = range_str + ' ' + mode_str
             self._reading_display.SetLabel(reading_display)
@@ -278,9 +278,9 @@ class SFP(wx.Frame):
                 if self._session is not None:
                     self._session.close()
                 self._session = nidmm.Session(current_dev_name)
-                self._session.configure_multi_point(trigger_count=0, sample_count=0, sample_trigger=nidmm.SampleTrigger.IMMEDIATE, sample_interval=-1)
+                self._session.configure_multi_point(trigger_count=0, sample_count=0, sample_trigger=nidmm.SampleTrigger.IMMEDIATE, sample_interval=-1)  # noqa: E501
 
-            self._session.configure_measurement_digits(nidmm.Function[current_function], current_range, current_digits)
+            self._session.configure_measurement_digits(nidmm.Function[current_function], current_range, current_digits)  # noqa: E501
             self._session._initiate()
             self._status.SetLabel("Good!")
         except nidmm.Error as e:
@@ -324,5 +324,3 @@ class SFPApp(AppBaseClass):
 
 app = SFPApp(False)
 app.MainLoop()
-
-
