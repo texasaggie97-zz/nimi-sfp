@@ -2,14 +2,12 @@ import nimodinst
 import niscope
 import warnings
 import wx
-import matplotlib
-from matplotlib.backends.backend_wxagg import FigureCanvasWxAgg as FigureCanvas
-from matplotlib.figure import Figure
 
 # begin wxGlade: extracode
-
+import matplotlib
 matplotlib.use("WxAgg")
-
+from matplotlib.backends.backend_wxagg import FigureCanvasWxAgg as FigureCanvas  # noqa: E402
+from matplotlib.figure import Figure  # noqa: E402
 # end wxGlade
 
 USE_WIT = True
@@ -441,7 +439,8 @@ class SFP(wx.Frame):
         self._session.configure_trigger_hysteresis(trigger_source, trigger_coupling, trigger_level, hysteresis, trigger_slope)  # noqa: E501
 
     def OnCloseWindow(self, event):  # noqa: N802
-        self._session.close()
+        if self._session is not None:
+            self._session.close()
         self.Destroy()
 
     def OnIdle(self, event):  # noqa: N802

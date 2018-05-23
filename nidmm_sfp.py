@@ -292,7 +292,8 @@ class SFP(wx.Frame):
         self._dev_digits = current_digits
 
     def OnCloseWindow(self, event):  # noqa: N802
-        self._session.close()
+        if self._session is not None:
+            self._session.close()
         self.Destroy()
 
     def OnIdle(self, event):  # noqa: N802
