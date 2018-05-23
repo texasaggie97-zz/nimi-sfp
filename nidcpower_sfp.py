@@ -188,6 +188,7 @@ class MyFrame(wx.Frame):
             self._session = None
             self._error = True
             self.status.SetLabel(str(e))
+            self.status.Wrap(225)
 
     def __change_session_event(self, event):
         self.__initialize_new_session()
@@ -215,6 +216,7 @@ class MyFrame(wx.Frame):
         except nidcpower.Error as e:
             self._error = True
             self.status.SetLabel(str(e))
+            self.status.Wrap(225)
 
     def __window_close_event(self, event):
         if self._session is not None:
@@ -232,6 +234,7 @@ class MyFrame(wx.Frame):
                 except nidcpower.Error as e:
                     self._error = True
                     self.status.SetLabel(str(e))
+                    self.status.Wrap(225)
 # end of class MyFrame
 
 
