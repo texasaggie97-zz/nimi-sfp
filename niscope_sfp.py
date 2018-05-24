@@ -6,7 +6,7 @@ import wx
 # begin wxGlade: extracode
 import matplotlib
 matplotlib.use("WxAgg")
-from matplotlib.backends.backend_wxagg import FigureCanvasWxAgg as FigureCanvas  # noqa: E402
+from matplotlib.backends.backend_wxagg import FigureCanvasWxAgg as FigureCanvas  # noqa: E402,E501
 from matplotlib.figure import Figure  # noqa: E402
 # end wxGlade
 
