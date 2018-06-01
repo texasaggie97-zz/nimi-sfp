@@ -180,7 +180,6 @@ class MyFrame(wx.Frame):
                         self.topology_value.Append(key)
                 self.topology_value.SetSelection(0)
 
-
             # Set selection to first item in the lists
             self.relay_name_value.SetSelection(0)
             self.channel_1_value.SetSelection(0)
