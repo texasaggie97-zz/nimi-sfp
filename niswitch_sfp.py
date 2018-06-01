@@ -58,8 +58,8 @@ class MyFrame(wx.Frame):
     def __set_properties(self):
         # begin wxGlade: MyFrame.__set_properties
         self.SetTitle("NI-SWITCH Simple SFP")
-        self.device_value.SetMinSize((111, 23))
-        self.topology_value.SetMinSize((111, 23))
+        self.device_value.SetMinSize((220, 23))
+        self.topology_value.SetMinSize((220, 23))
         self.activate_channel.SetMinSize((115, 26))
         self.relay_status_value.SetMinSize((111, 23))
         self.relay_count_value.SetMinSize((111, 23))

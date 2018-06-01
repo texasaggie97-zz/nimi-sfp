@@ -25,7 +25,7 @@
                                 <border>0</border>
                                 <flag>wxALIGN_CENTER</flag>
                                 <object class="wxComboBox" name="device_value" base="EditComboBox">
-                                    <size>111, 23</size>
+                                    <size>220, 23</size>
                                     <style>wxCB_DROPDOWN</style>
                                     <selection>-1</selection>
                                     <choices>
@@ -52,7 +52,7 @@
                                 <option>0</option>
                                 <border>0</border>
                                 <object class="wxComboBox" name="topology_value" base="EditComboBox">
-                                    <size>111, 23</size>
+                                    <size>220, 23</size>
                                     <style>wxCB_DROPDOWN</style>
                                     <selection>-1</selection>
                                     <choices>
