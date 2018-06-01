@@ -1,6 +1,7 @@
 import nimodinst
 import niswitch
 import wx
+from enums.niswitch_topologies import niswitch_topologies
 
 
 class MyFrame(wx.Frame):
@@ -10,7 +11,7 @@ class MyFrame(wx.Frame):
         wx.Frame.__init__(self, *args, **kwds)
         self.SetSize((400, 400))
         self.device_value = wx.ComboBox(self, wx.ID_ANY, choices=[], style=wx.CB_DROPDOWN)  # noqa: E501
-        self.topology_value = wx.ComboBox(self, wx.ID_ANY, choices=[], style=wx.CB_DROPDOWN)
+        self.topology_value = wx.ComboBox(self, wx.ID_ANY, choices=[], style=wx.CB_DROPDOWN)  # noqa: E501
         self.tab_control = wx.Notebook(self, wx.ID_ANY)
         self.channel_tab = wx.Panel(self.tab_control, wx.ID_ANY)
         self.channel_1_value = wx.ComboBox(self.channel_tab, wx.ID_ANY, choices=[], style=wx.CB_DROPDOWN)  # noqa: E501
@@ -148,10 +149,32 @@ class MyFrame(wx.Frame):
             for relay in range(relays):
                 self.relay_name_value.Append(self._session.get_relay_name(relay + 1))  # noqa: E501
 
+            # Read all topologies from file
+            topology_list = []
+            for name, member in niswitch_topologies.__members__.items():
+                topology_list.append(member.value)
+
+            # Read device model from driver
+            device_model_list = self._session.instrument_model.split("-")
+            if len(device_model_list) > 1:
+                device_model = device_model_list[1]
+            else:
+                device_model = "Not Found"
+
+            # Populate the combo-box with device topologies from the topology_list   # noqa: E501
+            self.topology_value.Clear()
+            self.topology_value.Append("Configured Topology")
+
+            for key in topology_list:
+                match = key.find(device_model)
+                if match != -1:
+                    self.topology_value.Append(key)
+
             # Set selection to first item in the lists
             self.relay_name_value.SetSelection(0)
             self.channel_1_value.SetSelection(0)
             self.channel_2_value.SetSelection(0)
+            self.topology_value.SetSelection(0)
             self.__update_status()
 
         # Catch error

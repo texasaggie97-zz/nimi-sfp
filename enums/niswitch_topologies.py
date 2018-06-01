@@ -1,6 +1,7 @@
 import enum
 
-# Inheriting from string to enforce that all values are strings 
+
+# Inheriting from string to enforce that all values are strings
 class niswitch_topologies(str, enum.Enum):
     TOPOLOGY_CONFIGURED_TOPOLOGY = "Configured Topology"
     TOPOLOGY_1127_1_WIRE_64X1_MUX = "1127/1-Wire 64x1 Mux"
@@ -116,7 +117,7 @@ class niswitch_topologies(str, enum.Enum):
     TOPOLOGY_2531_1_WIRE_8X64_MATRIX = "2531/1-Wire 8x64 Matrix"
     TOPOLOGY_2531_1_WIRE_DUAL_4X64_MATRIX = "2531/1-Wire Dual 4x64 Matrix"
     TOPOLOGY_2531_1_WIRE_DUAL_8X32_MATRIX = "2531/1-Wire Dual 8x32 Matrix"
-    TOPOLOGY_2531_1_WIRE_SIXTEEN_2X16_MATRIX = "2531/1-Wire Sixteen 2x16 Matrix"
+    TOPOLOGY_2531_1_WIRE_SIXTEEN_2X16_MATRIX = "2531/1-Wire Sixteen 2x16 Matrix"  # noqa: E501
     TOPOLOGY_2532_1_WIRE_16X32_MATRIX = "2532/1-Wire 16x32 Matrix"
     TOPOLOGY_2532_1_WIRE_4X128_MATRIX = "2532/1-Wire 4x128 Matrix"
     TOPOLOGY_2532_1_WIRE_8X64_MATRIX = "2532/1-Wire 8x64 Matrix"
@@ -124,7 +125,7 @@ class niswitch_topologies(str, enum.Enum):
     TOPOLOGY_2532_1_WIRE_DUAL_4X64_MATRIX = "2532/1-Wire Dual 4x64 Matrix"
     TOPOLOGY_2532_1_WIRE_DUAL_8X32_MATRIX = "2532/1-Wire Dual 8x32 Matrix"
     TOPOLOGY_2532_1_WIRE_QUAD_4X32_MATRIX = "2532/1-Wire Quad 4x32 Matrix"
-    TOPOLOGY_2532_1_WIRE_SIXTEEN_2X16_MATRIX = "2532/1-Wire Sixteen 2x16 Matrix"
+    TOPOLOGY_2532_1_WIRE_SIXTEEN_2X16_MATRIX = "2532/1-Wire Sixteen 2x16 Matrix"  # noqa: E501
     TOPOLOGY_2532_2_WIRE_16X16_MATRIX = "2532/2-Wire 16x16 Matrix"
     TOPOLOGY_2532_2_WIRE_4X64_MATRIX = "2532/2-Wire 4x64 Matrix"
     TOPOLOGY_2532_2_WIRE_8X32_MATRIX = "2532/2-Wire 8x32 Matrix"
