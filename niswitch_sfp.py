@@ -10,6 +10,7 @@ class MyFrame(wx.Frame):
         wx.Frame.__init__(self, *args, **kwds)
         self.SetSize((400, 400))
         self.device_value = wx.ComboBox(self, wx.ID_ANY, choices=[], style=wx.CB_DROPDOWN)  # noqa: E501
+        self.topology_value = wx.ComboBox(self, wx.ID_ANY, choices=[], style=wx.CB_DROPDOWN)
         self.tab_control = wx.Notebook(self, wx.ID_ANY)
         self.channel_tab = wx.Panel(self.tab_control, wx.ID_ANY)
         self.channel_1_value = wx.ComboBox(self.channel_tab, wx.ID_ANY, choices=[], style=wx.CB_DROPDOWN)  # noqa: E501
@@ -57,6 +58,8 @@ class MyFrame(wx.Frame):
     def __set_properties(self):
         # begin wxGlade: MyFrame.__set_properties
         self.SetTitle("NI-SWITCH Simple SFP")
+        self.device_value.SetMinSize((111, 23))
+        self.topology_value.SetMinSize((111, 23))
         self.activate_channel.SetMinSize((115, 26))
         self.relay_status_value.SetMinSize((111, 23))
         self.relay_count_value.SetMinSize((111, 23))
@@ -75,10 +78,17 @@ class MyFrame(wx.Frame):
         channel_status_sizer = wx.BoxSizer(wx.HORIZONTAL)
         channel_2_sizer = wx.BoxSizer(wx.HORIZONTAL)
         channel_1_sizer = wx.BoxSizer(wx.HORIZONTAL)
-        device_sizer = wx.BoxSizer(wx.HORIZONTAL)
-        device_sizer.Add(self.device_value, 0, wx.ALIGN_CENTER, 0)
+        device_sizer = wx.BoxSizer(wx.VERTICAL)
+        topology_sizer = wx.BoxSizer(wx.HORIZONTAL)
+        device_selection_sizer = wx.BoxSizer(wx.HORIZONTAL)
+        device_selection_sizer.Add(self.device_value, 0, wx.ALIGN_CENTER, 0)
         device_label = wx.StaticText(self, wx.ID_ANY, "Device Name")
-        device_sizer.Add(device_label, 0, wx.ALIGN_CENTER, 0)
+        device_selection_sizer.Add(device_label, 0, wx.ALIGN_CENTER, 0)
+        device_sizer.Add(device_selection_sizer, 1, wx.EXPAND, 0)
+        topology_sizer.Add(self.topology_value, 0, 0, 0)
+        topology_label = wx.StaticText(self, wx.ID_ANY, "Device Topology")
+        topology_sizer.Add(topology_label, 0, 0, 0)
+        device_sizer.Add(topology_sizer, 1, wx.EXPAND, 0)
         main_sizer.Add(device_sizer, 1, wx.EXPAND, 0)
         channel_1_sizer.Add(self.channel_1_value, 0, 0, 0)
         channel_1_label = wx.StaticText(self.channel_tab, wx.ID_ANY, "Channel 1")  # noqa: E501
