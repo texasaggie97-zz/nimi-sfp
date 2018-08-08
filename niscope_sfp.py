@@ -469,7 +469,7 @@ class SFP(wx.Frame):
 class SFPApp(AppBaseClass):
 
     def OnInit(self):  # noqa: N802
-        self.frame = SFP(None, wx.ID_ANY, "NI-DMM Python SFP")
+        self.frame = SFP(None, wx.ID_ANY, "NI-Scope Python SFP")
         self.SetTopWindow(self.frame)
 
         if USE_WIT:
