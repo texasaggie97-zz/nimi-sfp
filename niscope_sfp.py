@@ -448,9 +448,9 @@ class SFP(wx.Frame):
         self._session.configure_trigger_hysteresis(trigger_source, trigger_coupling, trigger_level, hysteresis, trigger_slope)  # noqa: E501
 
     def OnCloseWindow(self, event):  # noqa: N802
+        self.Destroy()
         if self._session is not None:
             self._session.close()
-        self.Destroy()
 
     def OnIdle(self, event):  # noqa: N802
         self.idleCtrl.SetValue(str(self.count))
