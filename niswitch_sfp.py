@@ -12,6 +12,7 @@ class MyFrame(wx.Frame):
         self.SetSize((400, 400))
         self.device_value = wx.ComboBox(self, wx.ID_ANY, choices=[], style=wx.CB_DROPDOWN)  # noqa: E501
         self.topology_value = wx.ComboBox(self, wx.ID_ANY, choices=[], style=wx.CB_DROPDOWN)  # noqa: E501
+        self.reset_button = wx.Button(self, wx.ID_ANY, "Reset Device")
         self.tab_control = wx.Notebook(self, wx.ID_ANY)
         self.channel_tab = wx.Panel(self.tab_control, wx.ID_ANY)
         self.channel_1_value = wx.ComboBox(self.channel_tab, wx.ID_ANY, choices=[], style=wx.CB_DROPDOWN)  # noqa: E501
@@ -43,6 +44,9 @@ class MyFrame(wx.Frame):
         self.Bind(wx.EVT_COMBOBOX, self.__update_selection_event, self.relay_name_value)  # noqa: E501
         self.Bind(wx.EVT_COMBOBOX, self.__update_selection_event, self.channel_1_value)  # noqa: E501
         self.Bind(wx.EVT_COMBOBOX, self.__update_selection_event, self.channel_2_value)  # noqa: E501
+
+        # Clicking reset button resets device
+        self.Bind(wx.EVT_BUTTON, self.__reset_device_event, self.reset_button)  # noqa: E501
 
         self._error = False
         self._session = None
@@ -90,10 +94,13 @@ class MyFrame(wx.Frame):
         device_label = wx.StaticText(self, wx.ID_ANY, "Device Name")
         device_selection_sizer.Add(device_label, 0, wx.ALIGN_CENTER, 0)
         device_sizer.Add(device_selection_sizer, 1, wx.EXPAND, 0)
+        reset_sizer = wx.BoxSizer(wx.HORIZONTAL)
         topology_sizer.Add(self.topology_value, 0, 0, 0)
         topology_label = wx.StaticText(self, wx.ID_ANY, "Device Topology")
         topology_sizer.Add(topology_label, 0, 0, 0)
         device_sizer.Add(topology_sizer, 1, wx.EXPAND, 0)
+        reset_sizer.Add(self.reset_button, 0, 0, 0)
+        device_sizer.Add(reset_sizer, 1, wx.EXPAND, 0)
         main_sizer.Add(device_sizer, 1, wx.EXPAND, 0)
         channel_1_sizer.Add(self.channel_1_value, 0, 0, 0)
         channel_1_label = wx.StaticText(self.channel_tab, wx.ID_ANY, "Channel 1")  # noqa: E501
@@ -200,6 +207,17 @@ class MyFrame(wx.Frame):
 
     def __change_topology_event(self, event):
         self.__initialize_new_session()
+
+    def __reset_device_event(self, event):
+        if self._error is False:
+            if self._session is not None:
+                try:
+                    self._session.reset()
+                except niswitch.Error as e:
+                    self._error = True
+                    self.status.SetLabel(str(e))
+                    self.status.Wrap(350)
+        self.__update_status()
 
     def __activate_relay(self, event):
         try:
