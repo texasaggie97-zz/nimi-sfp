@@ -1,6 +1,7 @@
 import nimodinst
 import niswitch
 import wx
+from enums.niswitch_topologies import niswitch_topologies
 
 
 class MyFrame(wx.Frame):
@@ -10,6 +11,8 @@ class MyFrame(wx.Frame):
         wx.Frame.__init__(self, *args, **kwds)
         self.SetSize((400, 400))
         self.device_value = wx.ComboBox(self, wx.ID_ANY, choices=[], style=wx.CB_DROPDOWN)  # noqa: E501
+        self.topology_value = wx.ComboBox(self, wx.ID_ANY, choices=[], style=wx.CB_DROPDOWN)  # noqa: E501
+        self.reset_button = wx.Button(self, wx.ID_ANY, "Reset Device")
         self.tab_control = wx.Notebook(self, wx.ID_ANY)
         self.channel_tab = wx.Panel(self.tab_control, wx.ID_ANY)
         self.channel_1_value = wx.ComboBox(self.channel_tab, wx.ID_ANY, choices=[], style=wx.CB_DROPDOWN)  # noqa: E501
@@ -29,8 +32,11 @@ class MyFrame(wx.Frame):
 
         self.Bind(wx.EVT_CLOSE, self.__window_close_event)
 
-        # Changing channel, function or device closes and creates new session
+        # Changing device closes and creates new session
         self.Bind(wx.EVT_COMBOBOX, self.__change_device_event, self.device_value)  # noqa: E501
+
+        # Changing topology closes and creates new session
+        self.Bind(wx.EVT_COMBOBOX, self.__change_topology_event, self.topology_value)  # noqa: E501
 
         # Changing properties updates reading
         self.Bind(wx.EVT_BUTTON, self.__activate_relay, self.activate_relay)  # noqa: E501
@@ -39,10 +45,14 @@ class MyFrame(wx.Frame):
         self.Bind(wx.EVT_COMBOBOX, self.__update_selection_event, self.channel_1_value)  # noqa: E501
         self.Bind(wx.EVT_COMBOBOX, self.__update_selection_event, self.channel_2_value)  # noqa: E501
 
+        # Clicking reset button resets device
+        self.Bind(wx.EVT_BUTTON, self.__reset_device_event, self.reset_button)  # noqa: E501
+
         self._error = False
         self._session = None
         self._modinst_session = None
         self._dev_name = None
+        self._new_device = True
 
         # Using NI-ModInst session to list available NI-DCPower devices
         self._modinst_session = nimodinst.Session('niswitch')
@@ -57,6 +67,8 @@ class MyFrame(wx.Frame):
     def __set_properties(self):
         # begin wxGlade: MyFrame.__set_properties
         self.SetTitle("NI-SWITCH Simple SFP")
+        self.device_value.SetMinSize((220, 23))
+        self.topology_value.SetMinSize((220, 23))
         self.activate_channel.SetMinSize((115, 26))
         self.relay_status_value.SetMinSize((111, 23))
         self.relay_count_value.SetMinSize((111, 23))
@@ -75,10 +87,20 @@ class MyFrame(wx.Frame):
         channel_status_sizer = wx.BoxSizer(wx.HORIZONTAL)
         channel_2_sizer = wx.BoxSizer(wx.HORIZONTAL)
         channel_1_sizer = wx.BoxSizer(wx.HORIZONTAL)
-        device_sizer = wx.BoxSizer(wx.HORIZONTAL)
-        device_sizer.Add(self.device_value, 0, wx.ALIGN_CENTER, 0)
+        device_sizer = wx.BoxSizer(wx.VERTICAL)
+        topology_sizer = wx.BoxSizer(wx.HORIZONTAL)
+        device_selection_sizer = wx.BoxSizer(wx.HORIZONTAL)
+        device_selection_sizer.Add(self.device_value, 0, wx.ALIGN_CENTER, 0)
         device_label = wx.StaticText(self, wx.ID_ANY, "Device Name")
-        device_sizer.Add(device_label, 0, wx.ALIGN_CENTER, 0)
+        device_selection_sizer.Add(device_label, 0, wx.ALIGN_CENTER, 0)
+        device_sizer.Add(device_selection_sizer, 1, wx.EXPAND, 0)
+        reset_sizer = wx.BoxSizer(wx.HORIZONTAL)
+        topology_sizer.Add(self.topology_value, 0, 0, 0)
+        topology_label = wx.StaticText(self, wx.ID_ANY, "Device Topology")
+        topology_sizer.Add(topology_label, 0, 0, 0)
+        device_sizer.Add(topology_sizer, 1, wx.EXPAND, 0)
+        reset_sizer.Add(self.reset_button, 0, 0, 0)
+        device_sizer.Add(reset_sizer, 1, wx.EXPAND, 0)
         main_sizer.Add(device_sizer, 1, wx.EXPAND, 0)
         channel_1_sizer.Add(self.channel_1_value, 0, 0, 0)
         channel_1_label = wx.StaticText(self.channel_tab, wx.ID_ANY, "Channel 1")  # noqa: E501
@@ -122,7 +144,12 @@ class MyFrame(wx.Frame):
         try:
             if self._session is not None:
                 self._session.close()
-            self._session = niswitch.Session(self.device_value.GetStringSelection())  # noqa: E501
+            if self._new_device is True:
+                selected_topology = "Configured Topology"
+            else:
+                selected_topology = self.topology_value.GetStringSelection()
+
+            self._session = niswitch.Session(resource_name=self.device_value.GetStringSelection(), topology=selected_topology, reset_device=True)  # noqa: E501
 
             # Add total channels on device to combo-box
             channels = self._session.channel_count
@@ -138,10 +165,33 @@ class MyFrame(wx.Frame):
             for relay in range(relays):
                 self.relay_name_value.Append(self._session.get_relay_name(relay + 1))  # noqa: E501
 
+            if self._new_device is True:
+                # Read all topologies from file
+                topology_list = []
+                for name, member in niswitch_topologies.__members__.items():
+                    topology_list.append(member.value)
+
+                # Read device model from driver
+                device_model_list = self._session.instrument_model.split("-")
+                if len(device_model_list) > 1:
+                    device_model = device_model_list[1]
+                else:
+                    device_model = "Not Found"
+
+                # Populate the combo-box with device topologies from the topology_list   # noqa: E501
+                self.topology_value.Clear()
+                self.topology_value.Append("Configured Topology")
+                for key in topology_list:
+                    match = key.find(device_model)
+                    if match != -1:
+                        self.topology_value.Append(key)
+                self.topology_value.SetSelection(0)
+
             # Set selection to first item in the lists
             self.relay_name_value.SetSelection(0)
             self.channel_1_value.SetSelection(0)
             self.channel_2_value.SetSelection(0)
+            self._new_device = False
             self.__update_status()
 
         # Catch error
@@ -152,7 +202,22 @@ class MyFrame(wx.Frame):
             self.status.Wrap(350)
 
     def __change_device_event(self, event):
+        self._new_device = True
         self.__initialize_new_session()
+
+    def __change_topology_event(self, event):
+        self.__initialize_new_session()
+
+    def __reset_device_event(self, event):
+        if self._error is False:
+            if self._session is not None:
+                try:
+                    self._session.reset()
+                except niswitch.Error as e:
+                    self._error = True
+                    self.status.SetLabel(str(e))
+                    self.status.Wrap(350)
+        self.__update_status()
 
     def __activate_relay(self, event):
         try:
